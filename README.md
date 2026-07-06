@@ -1,40 +1,38 @@
-# 우리 사이 (MVP) — 설기 & 레이 채팅
+# 우리 여행 지도 🗺️
 
-스플래시 → (설기/레이 선택, 처음 한 번) → 실시간 채팅방.
+둘이 함께 채워가는 한국 여행 지도. 코드로 커플을 연결하고, 17개 시·도 지도를 사진으로 채워가는 커플 여행 기록 앱입니다.
 
-## 시작하기
+## 주요 기능
 
-### 1. 설치
+- **간편 시작** — 가입 없이 "새로 시작하기"를 누르면 바로 내 지도가 생기고, 6자리 연결 코드가 발급돼요.
+- **커플 연결** — 상대 코드를 입력하면 두 사람의 지도가 하나로 합쳐지고, 이후 모든 기록이 실시간으로 공유됩니다. 연결되면 타이틀이 "닉네임 ♥ 닉네임"으로 바뀌어요.
+- **사진으로 채우는 지도** — 지역을 탭해 사진(지역당 최대 3장, 다중 선택 지원)과 캡션·여행 날짜를 기록하면, 대표 사진이 지도 위 지역 모양대로 채워집니다.
+- **여러 장의 지도** — 17곳을 모두 채우면 새 지도를 펼칠 수 있고, 좌우 스와이프로 넘겨볼 수 있어요.
+- **모바일 제스처** — 핀치 줌(1~4배), 확대 상태 드래그 이동 지원.
+
+## 기술 구조
+
+- **Next.js 16** (App Router) — 프론트엔드 + API 라우트
+- **SQLite** (Node 내장 `node:sqlite`) — 별도 설치·가입·API 키 불필요
+- 데이터 저장: 프로젝트 루트 `data/` 폴더 (`app.db` + 업로드 사진) — git에는 올라가지 않아요
+
+## 실행 방법
+
 ```bash
 npm install
-```
-
-### 2. Firebase 연결
-1. https://console.firebase.google.com 프로젝트 생성
-2. Firestore Database 만들기
-3. 프로젝트 설정 > 웹 앱(</>) 추가 → 설정값 복사
-4. `.env.local.example` 를 복사해 `.env.local` 로 이름 변경 후 값 채우기
-
-### 3. 실행
-```bash
 npm run dev
 ```
-http://localhost:3000
 
-## 출시 전
-Firebase 콘솔 > Firestore > 규칙에 아래를 붙여넣고 게시:
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /rooms/{room}/messages/{msg} {
-      allow read, create: if true;
-      allow update, delete: if false;
-    }
-  }
-}
-```
+http://localhost:3000 접속 — 환경변수 설정 없이 바로 동작합니다.
 
-## 메모
-- 두 기기에서 각각 설기/레이를 고르면 실시간으로 대화돼요.
-- 헤더의 '전환' 버튼으로 내 이름을 다시 고를 수 있어요(테스트용).
+> Node.js 22.5 이상 필요 (내장 SQLite 사용)
+
+같은 와이파이의 폰에서 테스트하려면 `next.config.mjs`의 `allowedDevOrigins`에 내 컴퓨터의 LAN IP를 추가한 뒤 `http://<내IP>:3000`으로 접속하세요.
+
+## 배포
+
+서버(파일 DB + 업로드 저장)가 필요하므로 정적 호스팅으로는 배포할 수 없고, Node 서버 호스팅(Railway, Fly.io 등)이 필요합니다. `data/` 폴더를 백업하면 모든 기록이 보존됩니다.
+
+## 지도 데이터 출처
+
+KOSTAT(통계청) — [southkorea/southkorea-maps](https://github.com/southkorea/southkorea-maps)
