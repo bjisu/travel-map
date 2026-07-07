@@ -57,6 +57,9 @@ input, textarea { font-family: inherit; }
 
 .field {
   width: 100%;
+  /* 인풋 종류(date 등)의 내재 폭과 무관하게 컨테이너 폭을 절대 넘지 않는다 */
+  max-width: 100%;
+  min-width: 0;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -111,6 +114,9 @@ input, textarea { font-family: inherit; }
   justify-content: center;
   z-index: 50;
   animation: fadeIn .2s ease;
+  /* 시트 밖(딤 영역)에서 시작한 터치는 스크롤·핀치 어느 것도 허용하지 않는다 */
+  touch-action: none;
+  overscroll-behavior: contain;
 }
 .modal-sheet {
   width: 100%;
@@ -121,6 +127,10 @@ input, textarea { font-family: inherit; }
   border-radius: 22px 22px 0 0;
   padding: 22px 18px calc(22px + env(safe-area-inset-bottom));
   animation: slideUp .25s ease;
+  /* 시트 안은 상하 스크롤만 — 좌우 팬·핀치 줌은 차단하고,
+     스크롤이 끝에 닿아도 뒤 배경으로 이어지지 않게 가둔다 */
+  touch-action: pan-y;
+  overscroll-behavior: contain;
 }
 @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
 @keyframes slideUp { from { transform: translateY(20px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }

@@ -122,10 +122,11 @@ export async function tx(fn) {
 export const newId = () => crypto.randomUUID().replace(/-/g, "");
 export const now = () => new Date().toISOString();
 
-// 서버 로컬 기준 오늘 날짜 (YYYY-MM-DD) — 방문일 미래 날짜 검증용
+// 오늘 날짜 (YYYY-MM-DD) — 방문일 미래 날짜 검증용.
+// 배포 서버(Vercel)는 UTC로 돌아 자정~오전 9시(KST)에 오늘이 미래로 오판되므로
+// 서비스 기준 시간대(Asia/Seoul)로 계산한다.
 export function localToday() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date());
 }
 
 /* ===== row(snake_case) → 클라이언트 객체(camelCase) 변환 ===== */

@@ -6,10 +6,12 @@ import {
   listenPhotos, getTripByRegion, addPhotoToRegion, deletePhoto, updateTripMeta, setCoverPhoto,
   MAX_PHOTOS_PER_TRIP, MAX_CAPTION,
 } from "@/lib/data";
+import DateField from "./DateField";
 
+// '오늘'은 서비스 기준 시간대(한국)로 판정 — 서버 검증(localToday)과 같은 기준이라
+// 기기 시간대와 무관하게 클라이언트·서버가 항상 같은 날짜를 본다
 function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date());
 }
 
 function formatDate(ts) {
@@ -51,6 +53,29 @@ export default function TripModal({
     return () => filesRef.current.forEach((f) => URL.revokeObjectURL(f.url));
   }, []);
 
+  // 시트가 열려 있는 동안 뒤 배경(지도 화면) 잠금 — body를 고정해
+  // 스크롤·바운스가 배경으로 전달되지 않게 하고, 닫힐 때 위치를 복원한다
+  useEffect(() => {
+    const body = document.body;
+    const scrollY = window.scrollY;
+    const prev = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+    };
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    body.style.width = "100%";
+    return () => {
+      Object.assign(body.style, prev);
+      window.scrollTo(0, scrollY);
+    };
+  }, []);
+
   // trip 초기 로드 (region 바뀔 때만 실행)
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +104,39 @@ export default function TripModal({
 
   // slide 보정: useEffect 대신 렌더 시점 파생값으로 계산 (lint error 해소)
   const displaySlide = photos.length > 0 ? Math.min(slide, photos.length - 1) : 0;
+
+  // 사진 영역 안에서의 좌우 스와이프로 사진 넘기기.
+  // 시트 자체는 touch-action: pan-y 라 가로 팬을 브라우저가 소비하지 않으므로
+  // pointer 이벤트로 직접 판정한다 (세로 스크롤로 이어지면 pointercancel로 무효화)
+  const swipeStart = useRef(null);
+  const SWIPE_MIN = 48; // 이 거리(px) 이상 + 가로 우세일 때만 스와이프로 인정
+
+  function handlePhotoPointerDown(e) {
+    swipeStart.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
+  }
+
+  function handlePhotoPointerUp(e) {
+    const s = swipeStart.current;
+    swipeStart.current = null;
+    if (!s || s.id !== e.pointerId || photos.length < 2) return;
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    setSlide(dx < 0
+      ? (displaySlide + 1) % photos.length
+      : (displaySlide - 1 + photos.length) % photos.length);
+  }
+
+  // 여행 날짜 변경 — 달력에서 미래는 탭 자체가 막혀 있지만,
+  // 어떤 경로로든 미래 날짜가 들어오면 즉시 오늘로 되돌린다 (이중 방어)
+  function handleVisitedAtChange(v) {
+    if (v && v > todayStr()) {
+      onToast("미래 날짜는 선택할 수 없어요.");
+      setVisitedAt(todayStr());
+      return;
+    }
+    setVisitedAt(v);
+  }
 
   // 파일 탐색기에서 여러 장 선택 — 남은 슬롯만큼만 받는다
   function handlePickFiles(e) {
@@ -122,9 +180,15 @@ export default function TripModal({
       onToast(`캡션은 ${MAX_CAPTION}자 이내로 적어주세요.`);
       return;
     }
-    if (!trip && visitedAt > todayStr()) {
-      onToast("미래 날짜는 선택할 수 없어요.");
-      return;
+    if (!trip) {
+      if (!visitedAt) {
+        onToast("여행 날짜를 선택해 주세요.");
+        return;
+      }
+      if (visitedAt > todayStr()) {
+        onToast("미래 날짜는 선택할 수 없어요.");
+        return;
+      }
     }
     setBusy(true);
     let done = 0;
@@ -171,6 +235,10 @@ export default function TripModal({
   }
 
   async function handleSaveMeta() {
+    if (!visitedAt) {
+      onToast("여행 날짜를 선택해 주세요.");
+      return;
+    }
     if (visitedAt > todayStr()) {
       onToast("미래 날짜는 선택할 수 없어요.");
       return;
@@ -259,18 +327,25 @@ export default function TripModal({
         {/* === 뷰 모드 === */}
         {mode === "view" && trip && photos.length > 0 && (
           <>
-            <div style={{
-              position: "relative",
-              aspectRatio: "1",
-              borderRadius: 16,
-              overflow: "hidden",
-              background: "#000",
-              marginBottom: 12,
-            }}>
+            <div
+              onPointerDown={handlePhotoPointerDown}
+              onPointerUp={handlePhotoPointerUp}
+              onPointerCancel={() => { swipeStart.current = null; }}
+              style={{
+                position: "relative",
+                aspectRatio: "1",
+                borderRadius: 16,
+                overflow: "hidden",
+                background: "#000",
+                marginBottom: 12,
+                touchAction: "pan-y",
+              }}
+            >
               <Image
                 src={current.photoUrl}
                 alt=""
                 fill
+                draggable={false}
                 style={{ objectFit: "cover" }}
                 sizes="(max-width: 480px) 100vw, 480px"
               />
@@ -365,14 +440,12 @@ export default function TripModal({
         {mode === "editMeta" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div>
-              <label className="muted" style={{ fontSize: 12 }}>여행 날짜</label>
-              <input
-                type="date"
-                className="field"
+              <label className="muted" style={{ fontSize: 12, display: "block", marginBottom: 6 }}>여행 날짜</label>
+              <DateField
                 value={visitedAt}
                 max={todayStr()}
-                onChange={(e) => setVisitedAt(e.target.value)}
-                style={{ marginTop: 6 }}
+                today={todayStr()}
+                onChange={handleVisitedAtChange}
               />
             </div>
             <div>
@@ -462,14 +535,12 @@ export default function TripModal({
             {!trip && (
               <>
                 <div>
-                  <label className="muted" style={{ fontSize: 12 }}>여행 날짜</label>
-                  <input
-                    type="date"
-                    className="field"
+                  <label className="muted" style={{ fontSize: 12, display: "block", marginBottom: 6 }}>여행 날짜</label>
+                  <DateField
                     value={visitedAt}
                     max={todayStr()}
-                    onChange={(e) => setVisitedAt(e.target.value)}
-                    style={{ marginTop: 6 }}
+                    today={todayStr()}
+                    onChange={handleVisitedAtChange}
                   />
                 </div>
                 <div>
