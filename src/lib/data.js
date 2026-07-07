@@ -1,5 +1,6 @@
 // src/lib/data.js — 서버 API 라우트를 호출하는 클라이언트 데이터 레이어.
 // (기존 Firebase 버전과 동일한 함수 시그니처를 유지한다)
+import { upload } from "@vercel/blob/client";
 
 export const MAX_PHOTOS_PER_TRIP = 3;
 export const MAX_CAPTION = 120;
@@ -10,7 +11,10 @@ async function api(path, options) {
   let body = null;
   try { body = await res.json(); } catch {}
   if (!res.ok) {
-    const msg = body?.error || `요청에 실패했어요. (HTTP ${res.status})`;
+    const msg = body?.error
+      || (res.status === 413
+        ? "사진 용량이 너무 커요. 조금 작은 사진으로 다시 시도해 주세요."
+        : `요청에 실패했어요. (HTTP ${res.status})`);
     throw new Error(msg);
   }
   return body;
@@ -114,9 +118,19 @@ async function makeThumbnail(file) {
   }
 }
 
+// 브라우저에서 안전한 고유 id (Blob 경로용)
+function genId() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID().replace(/-/g, "");
+  }
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+}
+
 /**
  * 사진 1장 + (trip이 없으면) 새 trip을 함께 만든다.
  * - 지역당 trip 1개, 사진 ≤ 3장, 첫 사진(order:0)이 자동 대표
+ * - 파일은 브라우저 → Vercel Blob 직접 업로드 (서버리스 본문 제한 4.5MB 회피,
+ *   토큰은 /api/blob/upload에서 발급) 후 URL만 서버에 등록한다
  */
 export async function addPhotoToRegion({
   coupleId, userId, regionId, regionName, file, caption, visitedAt, mapNo = 1,
@@ -125,18 +139,34 @@ export async function addPhotoToRegion({
   if (caption && caption.length > MAX_CAPTION) throw new Error(`캡션은 ${MAX_CAPTION}자 이내로 적어주세요.`);
 
   const thumbBlob = await makeThumbnail(file);
+  const photoId = genId();
+  const ext = (file.name?.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
 
-  const fd = new FormData();
-  fd.append("userId", userId);
-  fd.append("regionId", regionId);
-  fd.append("regionName", regionName);
-  fd.append("mapNo", String(mapNo));
-  if (caption !== undefined) fd.append("caption", caption);
-  if (visitedAt !== undefined) fd.append("visitedAt", visitedAt);
-  fd.append("photo", file, file.name || "photo.jpg");
-  fd.append("thumb", thumbBlob, "thumb.jpg");
+  let photoRes, thumbRes;
+  try {
+    photoRes = await upload(`photos/${coupleId}/${photoId}.${ext}`, file, {
+      access: "public",
+      handleUploadUrl: "/api/blob/upload",
+      contentType: file.type || "image/jpeg",
+    });
+    thumbRes = await upload(`thumbs/${coupleId}/${photoId}.jpg`, thumbBlob, {
+      access: "public",
+      handleUploadUrl: "/api/blob/upload",
+      contentType: "image/jpeg",
+    });
+  } catch (e) {
+    console.error("[data] Blob 직접 업로드 실패:", e);
+    throw new Error("사진 업로드에 실패했어요. 네트워크 상태를 확인해 주세요.");
+  }
 
-  await api(`/api/couples/${coupleId}/photos`, { method: "POST", body: fd });
+  await api(`/api/couples/${coupleId}/photos`, {
+    method: "POST",
+    ...json({
+      userId, regionId, regionName, mapNo, caption, visitedAt,
+      photoUrl: photoRes.url, photoPath: photoRes.pathname,
+      thumbUrl: thumbRes.url, thumbPath: thumbRes.pathname,
+    }),
+  });
 }
 
 export async function updateTripMeta(coupleId, tripId, userId, { caption, visitedAt }) {
