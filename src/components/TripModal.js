@@ -15,7 +15,7 @@ function todayStr() {
 function formatDate(ts) {
   if (!ts) return "";
   const d = ts.toDate ? ts.toDate() : new Date(ts);
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function dateInputValue(ts) {
@@ -238,8 +238,11 @@ export default function TripModal({
           <div>
             <h2 style={{ fontSize: 20 }}>{region.fullName}</h2>
             {trip && (
-              <p className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>
-                사진 {photos.length} / {MAX_PHOTOS_PER_TRIP}장 · {formatDate(trip.visitedAt)}
+              <p className="muted" style={{ fontSize: 12.5, marginTop: 4, display: "flex", gap: 12 }}>
+                {photos.length > 0 && (
+                  <span>{displaySlide + 1}/{photos.length}장</span>
+                )}
+                <span>{formatDate(trip.visitedAt)}</span>
               </p>
             )}
           </div>
