@@ -1,7 +1,7 @@
 // POST /api/couples/[id]/photos → 사진 1장 업로드 (+trip이 없으면 새로 생성)
 // multipart/form-data: userId, regionId, regionName, mapNo?, caption?, visitedAt?, photo, thumb
 // 파일은 Vercel Blob에 저장된다.
-import { put, del } from "@vercel/blob";
+import { put, del } from "@/lib/server/blob";
 import { row, tx, newId, now, localToday, ok, fail } from "@/lib/server/db";
 
 const MAX_PHOTOS_PER_TRIP = 3;

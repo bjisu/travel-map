@@ -1,6 +1,6 @@
 // DELETE /api/couples/[id]/trips/[tripId]/photos/[photoId]
 // - 남은 사진 order 재배치, 대표 자동 승계, 마지막 사진이면 trip 삭제
-import { del } from "@vercel/blob";
+import { del } from "@/lib/server/blob";
 import { row, rows, tx, now, ok, fail } from "@/lib/server/db";
 
 export async function DELETE(request, { params }) {
