@@ -153,3 +153,8 @@ export async function updateTripMeta(coupleId, tripId, userId, { caption, visite
 export async function deletePhoto(coupleId, tripId, photoId) {
   await api(`/api/couples/${coupleId}/trips/${tripId}/photos/${photoId}`, { method: "DELETE" });
 }
+
+// 대표 사진 지정 (지역당 하나 — 서버에서 이전 대표는 자동 해제)
+export async function setCoverPhoto(coupleId, tripId, photoId) {
+  await api(`/api/couples/${coupleId}/trips/${tripId}/photos/${photoId}`, { method: "PATCH" });
+}

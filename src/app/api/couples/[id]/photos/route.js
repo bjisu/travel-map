@@ -87,8 +87,8 @@ export async function POST(request, { params }) {
 
       if (count === 0) {
         await c.query(
-          "UPDATE trips SET photo_count = $1, cover_thumb_url = $2, updated_by = $3, updated_at = $4 WHERE id = $5",
-          [count + 1, thumbBlob.url, userId, now(), tripId]
+          "UPDATE trips SET photo_count = $1, cover_thumb_url = $2, cover_photo_id = $3, updated_by = $4, updated_at = $5 WHERE id = $6",
+          [count + 1, thumbBlob.url, photoId, userId, now(), tripId]
         );
       } else {
         await c.query(

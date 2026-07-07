@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import {
-  listenPhotos, getTripByRegion, addPhotoToRegion, deletePhoto, updateTripMeta,
+  listenPhotos, getTripByRegion, addPhotoToRegion, deletePhoto, updateTripMeta, setCoverPhoto,
   MAX_PHOTOS_PER_TRIP, MAX_CAPTION,
 } from "@/lib/data";
 
@@ -187,6 +187,22 @@ export default function TripModal({
     }
   }
 
+  async function handleSetCover(photoId) {
+    setBusy(true);
+    try {
+      await setCoverPhoto(coupleId, trip.id, photoId);
+      const p = photos.find((x) => x.id === photoId);
+      // 지도·목록은 폴링으로 곧바로 따라오고, 모달 안은 즉시 반영
+      setTrip({ ...trip, coverPhotoId: photoId, coverThumbUrl: p?.thumbUrl || trip.coverThumbUrl });
+      onToast("대표 사진을 변경했어요.");
+    } catch (e) {
+      console.error("[TripModal] 대표 사진 변경 실패:", e);
+      onToast(e.message || "대표 사진 변경에 실패했어요.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleDeletePhoto(photoId) {
     if (!confirm("이 사진을 삭제할까요?")) return;
     setBusy(true);
@@ -209,6 +225,10 @@ export default function TripModal({
   const current = photos[displaySlide];
   const full = photos.length >= MAX_PHOTOS_PER_TRIP;
   const allSlotsUsed = photos.length + files.length >= MAX_PHOTOS_PER_TRIP;
+  // 현재 대표 사진 id (예전 데이터는 썸네일 URL 매칭 → 그래도 없으면 첫 사진)
+  const coverId = trip?.coverPhotoId
+    || photos.find((p) => p.thumbUrl === trip?.coverThumbUrl)?.id
+    || photos[0]?.id;
 
   return (
     <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -280,11 +300,23 @@ export default function TripModal({
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <span style={{ display: "flex", alignItems: "center" }}>
-                {displaySlide === 0 && <span style={{
-                  padding: "2px 8px", borderRadius: 99,
-                  background: "var(--accent-soft)", color: "var(--accent-deep)",
-                  fontSize: 11, fontWeight: 700,
-                }}>대표</span>}
+                {current.id === coverId ? (
+                  <span style={{
+                    padding: "2px 8px", borderRadius: 99,
+                    background: "var(--accent-soft)", color: "var(--accent-deep)",
+                    fontSize: 11, fontWeight: 700,
+                  }}>대표</span>
+                ) : photos.length > 1 && (
+                  <button
+                    onClick={() => handleSetCover(current.id)}
+                    disabled={busy}
+                    style={{
+                      padding: "4px 10px", borderRadius: 99,
+                      border: "1px solid var(--line)", background: "transparent",
+                      color: "var(--ink-soft)", fontSize: 11.5,
+                    }}
+                  >대표로 설정</button>
+                )}
               </span>
               <button
                 className="btn-danger"

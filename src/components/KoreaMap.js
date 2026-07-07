@@ -23,6 +23,26 @@ const LABEL_POS = {
 // 광역시·특별시는 면적이 좁으므로 라벨을 한 단계 작게
 const METRO = new Set(["KR-11", "KR-21", "KR-22", "KR-23", "KR-24", "KR-25", "KR-26", "KR-29"]);
 
+// 지역별 바운딩 박스: 사진을 지도 전체가 아니라 해당 지역 영역에만 맞춰 배치한다.
+// (전체 캔버스에 늘리면 지역 하나에 쓰이는 실질 해상도가 크게 떨어져 확대 시 화질이 뭉개진다)
+const REGION_BBOX = (() => {
+  const boxes = {};
+  for (const r of REGIONS) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const pair of r.d.match(/-?[\d.]+,-?[\d.]+/g) || []) {
+      const comma = pair.indexOf(",");
+      const x = +pair.slice(0, comma);
+      const y = +pair.slice(comma + 1);
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+    boxes[r.id] = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  }
+  return boxes;
+})();
+
 /**
  * @param {Object[]} trips - [{ regionId, coverThumbUrl }, ...]
  * @param {(regionId: string) => void} onRegionClick
@@ -57,18 +77,19 @@ export default function KoreaMap({ trips = [], onRegionClick }) {
         />
       ))}
 
-      {/* 2단계: 사진이 있는 지역만 사진으로 채움 */}
+      {/* 2단계: 사진이 있는 지역만 사진으로 채움 (지역 바운딩 박스에 맞춰 배치) */}
       {REGIONS.map((r) => {
         const trip = tripByRegion[r.id];
         if (!trip?.coverThumbUrl) return null;
+        const b = REGION_BBOX[r.id];
         return (
           <image
             key={`img-${r.id}`}
             href={trip.coverThumbUrl}
-            x="0"
-            y="0"
-            width="800"
-            height="1000"
+            x={b.x}
+            y={b.y}
+            width={b.w}
+            height={b.h}
             clipPath={`url(#clip-${r.id})`}
             preserveAspectRatio="xMidYMid slice"
           />

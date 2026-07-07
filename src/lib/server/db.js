@@ -62,6 +62,7 @@ function runSchema() {
       caption         TEXT NOT NULL DEFAULT '',
       visited_at      TEXT,
       cover_thumb_url TEXT NOT NULL DEFAULT '',
+      cover_photo_id  TEXT,
       photo_count     INTEGER NOT NULL DEFAULT 0,
       created_by      TEXT,
       updated_by      TEXT,
@@ -79,6 +80,8 @@ function runSchema() {
       uploaded_by TEXT,
       created_at  TEXT NOT NULL
     );
+    -- 이미 만들어진 테이블에도 새 컬럼 반영 (멱등)
+    ALTER TABLE trips ADD COLUMN IF NOT EXISTS cover_photo_id TEXT;
   `);
 }
 
@@ -142,7 +145,7 @@ export function toTrip(r) {
   return r ? {
     id: r.id, mapNo: r.map_no ?? 1, regionId: r.region_id, regionName: r.region_name,
     caption: r.caption, visitedAt: r.visited_at,
-    coverThumbUrl: r.cover_thumb_url, photoCount: r.photo_count,
+    coverThumbUrl: r.cover_thumb_url, coverPhotoId: r.cover_photo_id, photoCount: r.photo_count,
     createdBy: r.created_by, updatedBy: r.updated_by, updatedAt: r.updated_at,
   } : null;
 }
