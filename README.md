@@ -13,25 +13,27 @@
 ## 기술 구조
 
 - **Next.js 16** (App Router) — 프론트엔드 + API 라우트
-- **SQLite** (Node 내장 `node:sqlite`) — 별도 설치·가입·API 키 불필요
-- 데이터 저장: 프로젝트 루트 `data/` 폴더 (`app.db` + 업로드 사진) — git에는 올라가지 않아요
+- **Neon Postgres** — 데이터 저장 (Vercel 대시보드에서 무료로 연결)
+- **Vercel Blob** — 업로드 사진 저장
 
 ## 실행 방법
 
 ```bash
 npm install
+vercel env pull .env.local   # Vercel 프로젝트에서 DATABASE_URL 등 환경변수 받아오기
 npm run dev
 ```
 
-http://localhost:3000 접속 — 환경변수 설정 없이 바로 동작합니다.
-
-> Node.js 22.5 이상 필요 (내장 SQLite 사용)
+http://localhost:3000 접속. 필요한 환경변수는 `.env.example`을 참고하세요.
 
 같은 와이파이의 폰에서 테스트하려면 `next.config.mjs`의 `allowedDevOrigins`에 내 컴퓨터의 LAN IP를 추가한 뒤 `http://<내IP>:3000`으로 접속하세요.
 
-## 배포
+## 배포 (Vercel)
 
-서버(파일 DB + 업로드 저장)가 필요하므로 정적 호스팅으로는 배포할 수 없고, Node 서버 호스팅(Railway, Fly.io 등)이 필요합니다. `data/` 폴더를 백업하면 모든 기록이 보존됩니다.
+1. [Vercel](https://vercel.com)에서 이 GitHub 저장소를 import
+2. 프로젝트 → **Storage** 탭에서 **Neon**(Postgres)과 **Blob** 스토어를 생성·연결
+   → `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN` 환경변수가 자동 주입됩니다
+3. Deploy — 끝. 테이블은 첫 요청 때 자동 생성됩니다.
 
 ## 지도 데이터 출처
 

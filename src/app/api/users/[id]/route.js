@@ -1,12 +1,12 @@
 // GET   /api/users/[id] → 사용자 조회 (없으면 null)
 // PATCH /api/users/[id] → 닉네임 수정
-import { db, toUser, ok, fail } from "@/lib/server/db";
+import { row, run, toUser, ok, fail } from "@/lib/server/db";
 
 export async function GET(request, { params }) {
   try {
     const { id } = await params;
-    const row = db.prepare("SELECT * FROM users WHERE id = ?").get(id);
-    return ok(toUser(row));
+    const r = await row("SELECT * FROM users WHERE id = $1", [id]);
+    return ok(toUser(r));
   } catch (e) {
     console.error("[api/users/[id] GET]", e);
     return fail("사용자 조회 중 오류가 발생했어요.", 500);
@@ -19,8 +19,8 @@ export async function PATCH(request, { params }) {
     const body = await request.json().catch(() => ({}));
     const nickname = (body.nickname || "").trim().slice(0, 12);
     if (!nickname) return fail("닉네임을 입력해 주세요.");
-    const r = db.prepare("UPDATE users SET nickname = ? WHERE id = ?").run(nickname, id);
-    if (r.changes === 0) return fail("사용자를 찾을 수 없어요.", 404);
+    const r = await run("UPDATE users SET nickname = $1 WHERE id = $2", [nickname, id]);
+    if (r.rowCount === 0) return fail("사용자를 찾을 수 없어요.", 404);
     return ok({ ok: true });
   } catch (e) {
     console.error("[api/users/[id] PATCH]", e);
