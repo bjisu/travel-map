@@ -25,6 +25,9 @@ export async function POST(request) {
         return {
           allowedContentTypes: ["image/*"],
           maximumSizeInBytes: MAX_PHOTO_BYTES,
+          // 파일 경로에 고유 id가 들어가 내용이 절대 바뀌지 않으므로
+          // 브라우저·엣지 캐시를 1년으로 — 한 번 본 사진은 다시 내려받지 않는다
+          cacheControlMaxAge: 60 * 60 * 24 * 365,
         };
       },
       // 등록은 클라이언트가 업로드 완료 후 /photos API로 직접 요청하므로 여기선 없음

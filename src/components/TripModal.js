@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import {
-  listenPhotos, getTripByRegion, addPhotoToRegion, deletePhoto, updateTripMeta, setCoverPhoto,
+  listenPhotos, getTripByRegion, addPhotosToRegion, deletePhoto, updateTripMeta, setCoverPhoto,
   MAX_PHOTOS_PER_TRIP, MAX_CAPTION,
 } from "@/lib/data";
 import DateField from "./DateField";
@@ -41,7 +41,7 @@ export default function TripModal({
   // 선택된 사진들: [{ file, url(미리보기용 objectURL) }]
   const [files, setFiles] = useState([]);
   const filesRef = useRef([]);
-  const [uploadedIdx, setUploadedIdx] = useState(0); // 업로드 진행 표시 (n/전체)
+  const [progress, setProgress] = useState(0); // 업로드 진행률 (0~100)
 
   function updateFiles(next) {
     filesRef.current = next;
@@ -104,6 +104,15 @@ export default function TripModal({
 
   // slide 보정: useEffect 대신 렌더 시점 파생값으로 계산 (lint error 해소)
   const displaySlide = photos.length > 0 ? Math.min(slide, photos.length - 1) : 0;
+
+  // 좌우 사진의 고화질본을 미리 받아 두어 스와이프 시 바로 보이게 한다
+  useEffect(() => {
+    if (photos.length < 2) return;
+    for (const off of [-1, 1]) {
+      const p = photos[(displaySlide + off + photos.length) % photos.length];
+      if (p?.photoUrl) new window.Image().src = p.photoUrl;
+    }
+  }, [photos, displaySlide]);
 
   // 사진 영역 안에서의 좌우 스와이프로 사진 넘기기.
   // 시트 자체는 touch-action: pan-y 라 가로 팬을 브라우저가 소비하지 않으므로
@@ -191,31 +200,34 @@ export default function TripModal({
       }
     }
     setBusy(true);
-    let done = 0;
+    setProgress(0);
     try {
-      for (const { file } of files) {
-        setUploadedIdx(done + 1);
-        await addPhotoToRegion({
-          coupleId, userId,
-          regionId: region.id,
-          regionName: region.fullName,
-          file,
-          // 캡션·날짜는 새 trip을 만드는 첫 장에만 적용된다
-          caption: trip || done > 0 ? undefined : caption,
-          visitedAt: trip || done > 0 ? undefined : visitedAt,
-          mapNo,
-        });
-        done++;
+      // 전 장을 병렬 업로드하고, 실패한 장만 선택 목록에 남겨 다시 시도할 수 있게 한다
+      const { added, failedIndices } = await addPhotosToRegion({
+        coupleId, userId,
+        regionId: region.id,
+        regionName: region.fullName,
+        files: files.map((f) => f.file),
+        // 캡션·날짜는 새 trip을 만들 때(첫 등록 장)에만 적용된다
+        caption: trip ? undefined : caption,
+        visitedAt: trip ? undefined : visitedAt,
+        mapNo,
+        onProgress: setProgress,
+      });
+      const failed = new Set(failedIndices);
+      files.forEach((f, i) => { if (!failed.has(i)) URL.revokeObjectURL(f.url); });
+      updateFiles(files.filter((_, i) => failed.has(i)));
+      if (failed.size > 0) {
+        onToast(added > 0
+          ? `${added}장은 올라갔고 ${failed.size}장은 실패했어요. 다시 시도해주세요.`
+          : "사진 업로드에 실패했어요. 다시 시도해주세요.");
+      } else {
+        onToast(added > 1 ? `사진 ${added}장을 추가했어요.` : "사진을 추가했어요.");
+        setMode("view");
       }
-      files.forEach((f) => URL.revokeObjectURL(f.url));
-      updateFiles([]);
-      onToast(done > 1 ? `사진 ${done}장을 추가했어요.` : "사진을 추가했어요.");
-      setMode("view");
     } catch (e) {
-      // 중간에 실패하면 성공한 장은 선택 목록에서 제거하고, 남은 장은 다시 시도할 수 있게 유지
+      // 압축 단계 등에서 통째로 실패 — 아무것도 올라가지 않았으니 선택 목록은 그대로 둔다
       console.error("[TripModal] 사진 업로드 실패:", e);
-      files.slice(0, done).forEach((f) => URL.revokeObjectURL(f.url));
-      updateFiles(files.slice(done));
       onToast(e.message || "사진 업로드에 실패했어요. 다시 시도해주세요.");
     } finally {
       // trip이 새로 생겼을 수 있으니 다시 불러와 사진 구독을 시작한다
@@ -229,7 +241,7 @@ export default function TripModal({
       } catch (e) {
         console.error("[TripModal] 여행 정보 갱신 실패:", e);
       }
-      setUploadedIdx(0);
+      setProgress(0);
       setBusy(false);
     }
   }
@@ -341,6 +353,19 @@ export default function TripModal({
                 touchAction: "pan-y",
               }}
             >
+              {/* 썸네일(지도에서 이미 캐시됨)을 먼저 깔고, 고화질본이 로드되면 위를 덮는다
+                  — 큰 사진이 도착할 때까지 검은 화면 대신 사진이 즉시 보인다 */}
+              {current.thumbUrl && (
+                <Image
+                  src={current.thumbUrl}
+                  alt=""
+                  fill
+                  aria-hidden
+                  draggable={false}
+                  style={{ objectFit: "cover" }}
+                  sizes="(max-width: 480px) 100vw, 480px"
+                />
+              )}
               <Image
                 src={current.photoUrl}
                 alt=""
@@ -560,9 +585,25 @@ export default function TripModal({
               </>
             )}
 
+            {/* 업로드 진행률 — 멈춘 것처럼 보이지 않게 바이트 기준 진행 상태를 보여준다 */}
+            {busy && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ flex: 1, height: 5, background: "var(--map-empty)", borderRadius: 99, overflow: "hidden" }}>
+                  <div style={{
+                    width: `${progress}%`, height: "100%",
+                    background: "var(--accent-deep)", borderRadius: 99,
+                    transition: "width .25s ease",
+                  }} />
+                </div>
+                <span className="muted" style={{ fontSize: 11.5, minWidth: 34, textAlign: "right" }}>
+                  {progress}%
+                </span>
+              </div>
+            )}
+
             <div style={{ display: "flex", gap: 8 }}>
               {trip && (
-                <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setMode("view")}>
+                <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setMode("view")} disabled={busy}>
                   취소
                 </button>
               )}
@@ -573,7 +614,7 @@ export default function TripModal({
                 disabled={busy || files.length === 0 || full}
               >
                 {busy
-                  ? `업로드 중… (${uploadedIdx}/${files.length})`
+                  ? `업로드 중… ${progress}%`
                   : files.length > 1 ? `${files.length}장 추가` : "추가"}
               </button>
             </div>

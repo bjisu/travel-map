@@ -170,7 +170,9 @@ export default function MapCarousel({ maps, index, onIndexChange, onRegionClick 
                 willChange: "transform",
               } : undefined}
             >
-              <KoreaMap trips={trips} onRegionClick={handleTap} />
+              {/* 화면에서 두 장 이상 떨어진 지도는 썸네일을 내려받지 않는다
+                  (스와이프는 한 번에 한 장씩이라 인접 지도만 미리 채워두면 충분) */}
+              <KoreaMap trips={Math.abs(i - index) <= 1 ? trips : []} onRegionClick={handleTap} />
             </div>
           </div>
         ))}
