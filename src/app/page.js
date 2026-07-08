@@ -99,7 +99,7 @@ export default function Home() {
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <button className="btn" onClick={handleCreate}>지도 만들기</button>
           <button className="btn btn-ghost" onClick={() => { setMode("enter"); setErr(""); }}>
-            만들고있는 지도가 있어요
+            커플 연결
           </button>
         </div>
       )}
