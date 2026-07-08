@@ -89,18 +89,17 @@ export default function Home() {
   return (
     <main className="screen" style={{ justifyContent: "center", gap: 22 }}>
       <div style={{ textAlign: "center" }}>
-        <div style={{ fontSize: 54 }}>🗺️</div>
-        <h1 style={{ fontSize: 26, marginTop: 12 }}>우리 여행 지도</h1>
+        <h1 style={{ fontSize: 26 }}>우리 여행 지도</h1>
         <p className="muted" style={{ marginTop: 8, fontSize: 14 }}>
-          둘이 함께 채워가는 한국 지도
+          함께 채워나가는 우리 여행지도
         </p>
       </div>
 
       {mode === "home" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <button className="btn" onClick={handleCreate}>새로 시작하기</button>
+          <button className="btn" onClick={handleCreate}>지도 만들기</button>
           <button className="btn btn-ghost" onClick={() => { setMode("enter"); setErr(""); }}>
-            코드가 있어요
+            만들고 있는 지도가 있어요
           </button>
         </div>
       )}
