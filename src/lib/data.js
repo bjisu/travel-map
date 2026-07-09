@@ -1,6 +1,10 @@
 // src/lib/data.js — 서버 API 라우트를 호출하는 클라이언트 데이터 레이어.
 // (기존 Firebase 버전과 동일한 함수 시그니처를 유지한다)
 import { upload } from "@vercel/blob/client";
+import {
+  MOCK_ENABLED, MOCK_USERS, MOCK_COUPLE, MOCK_TRIPS,
+  mockTripByRegion, mockPhotos, mockWriteError,
+} from "@/lib/mockTrips";
 
 export const MAX_PHOTOS_PER_TRIP = 3;
 export const MAX_CAPTION = 120;
@@ -28,29 +32,35 @@ const json = (data) => ({
 /* ===== users ===== */
 
 export async function createUser(nickname = "여행자") {
+  if (MOCK_ENABLED) throw mockWriteError();
   return api("/api/users", { method: "POST", ...json({ nickname }) });
 }
 
 export async function getUser(userId) {
+  if (MOCK_ENABLED) return MOCK_USERS[userId] || null;
   return api(`/api/users/${userId}`);
 }
 
 export async function updateUser(userId, fields) {
+  if (MOCK_ENABLED) throw mockWriteError();
   await api(`/api/users/${userId}`, { method: "PATCH", ...json(fields) });
 }
 
 export async function findUserByCode(code) {
+  if (MOCK_ENABLED) return null;
   return api(`/api/users?code=${encodeURIComponent(code.toUpperCase().trim())}`);
 }
 
 /* ===== couples (연결 1회·해제 불가) ===== */
 
 export async function connectCouple(myUserId, partnerCode) {
+  if (MOCK_ENABLED) throw mockWriteError();
   const r = await api("/api/couples", { method: "POST", ...json({ myUserId, partnerCode }) });
   return r.coupleId;
 }
 
 export async function getCouple(coupleId) {
+  if (MOCK_ENABLED) return MOCK_COUPLE;
   return api(`/api/couples/${coupleId}`);
 }
 
@@ -76,21 +86,25 @@ function poll(load, cb) {
 
 // 모든 trip 폴링 구독 (지도 표시용)
 export function listenTrips(coupleId, cb) {
+  if (MOCK_ENABLED) { cb(MOCK_TRIPS); return () => {}; }
   return poll(() => api(`/api/couples/${coupleId}/trips`), cb);
 }
 
 export async function getTripByRegion(coupleId, regionId, mapNo = 1) {
+  if (MOCK_ENABLED) return mockTripByRegion(regionId, mapNo);
   return api(`/api/couples/${coupleId}/trips?regionId=${encodeURIComponent(regionId)}&map=${mapNo}`);
 }
 
 // 새 지도 추가 (마지막 지도가 17곳 모두 채워졌을 때만 성공)
 export async function createMap(coupleId) {
+  if (MOCK_ENABLED) throw mockWriteError();
   const r = await api(`/api/couples/${coupleId}/maps`, { method: "POST" });
   return r.mapCount;
 }
 
 // 지역 안 사진 폴링 구독
 export function listenPhotos(coupleId, tripId, cb) {
+  if (MOCK_ENABLED) { cb(mockPhotos(tripId)); return () => {}; }
   return poll(() => api(`/api/couples/${coupleId}/trips/${tripId}/photos`), cb);
 }
 
@@ -196,6 +210,7 @@ function uploadBlob(pathname, body, contentType, onProgress) {
 export async function addPhotosToRegion({
   coupleId, userId, regionId, regionName, files, caption, visitedAt, mapNo = 1, onProgress,
 }) {
+  if (MOCK_ENABLED) throw mockWriteError();
   const report = (p) => { try { onProgress?.(Math.min(100, Math.round(p))); } catch {} };
 
   for (const file of files) {
@@ -269,6 +284,7 @@ export async function addPhotosToRegion({
 }
 
 export async function updateTripMeta(coupleId, tripId, userId, { caption, visitedAt }) {
+  if (MOCK_ENABLED) throw mockWriteError();
   if (caption && caption.length > MAX_CAPTION) throw new Error(`캡션은 ${MAX_CAPTION}자 이내로 적어주세요.`);
   await api(`/api/couples/${coupleId}/trips/${tripId}`, {
     method: "PATCH", ...json({ userId, caption, visitedAt }),
@@ -280,10 +296,12 @@ export async function updateTripMeta(coupleId, tripId, userId, { caption, visite
  * - 남은 사진 order 재배치, 대표 자동 승계, 마지막 사진이면 trip도 삭제
  */
 export async function deletePhoto(coupleId, tripId, photoId) {
+  if (MOCK_ENABLED) throw mockWriteError();
   await api(`/api/couples/${coupleId}/trips/${tripId}/photos/${photoId}`, { method: "DELETE" });
 }
 
 // 대표 사진 지정 (지역당 하나 — 서버에서 이전 대표는 자동 해제)
 export async function setCoverPhoto(coupleId, tripId, photoId) {
+  if (MOCK_ENABLED) throw mockWriteError();
   await api(`/api/couples/${coupleId}/trips/${tripId}/photos/${photoId}`, { method: "PATCH" });
 }

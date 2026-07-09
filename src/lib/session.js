@@ -1,11 +1,15 @@
 // src/lib/session.js
 "use client";
+import { MOCK_ENABLED, MOCK_USER_ID } from "@/lib/mockTrips";
+
 const KEY = "travel_user_id";
 
 export function saveUserId(id) {
   if (typeof window !== "undefined") localStorage.setItem(KEY, id);
 }
 export function getUserId() {
+  // 목업 모드(개발 전용)에서는 로그인 없이 바로 목업 사용자로 진입한다
+  if (MOCK_ENABLED) return MOCK_USER_ID;
   if (typeof window === "undefined") return null;
   return localStorage.getItem(KEY);
 }

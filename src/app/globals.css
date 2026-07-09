@@ -1,17 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #faf5ec;
-  --bg-elev: #fffaf2;
-  --bg-card: #fffaf2;
+  --bg: #fcf8f0;
+  --bg-elev: #fffdf8;
+  --bg-card: #fffdf8;
   --ink: #2d3142;
   --ink-soft: #6b6f80;
   --line: #e8ddc7;
   --accent: #8ecae6;
   --accent-deep: #5ba8c9;
   --accent-soft: #c9e6f2;
-  --map-empty: #f0e6d2;
-  --map-stroke: #d4c4a3;
+  /* 지도 면은 배경(밝은 크림)보다 확실히 깊은 웜 베이지 — 실루엣이 또렷하게 분리된다 */
+  --map-empty: #e6cfa0;
+  --map-stroke: #c2aa78;
   --shadow: 0 4px 20px rgba(78, 62, 45, 0.08);
 }
 
@@ -95,6 +96,15 @@ input, textarea { font-family: inherit; }
   background: transparent;
   border: 1px solid #d9aaa8;
   color: #a13e3a;
+}
+
+/* 지도: 사진 등장 페이드인 (로드 완료 시 일러스트 → 사진 전환) */
+.region-photo {
+  animation: region-photo-in .45s ease both;
+}
+@keyframes region-photo-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .card {
